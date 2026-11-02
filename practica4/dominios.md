@@ -1,4 +1,4 @@
-# Ejercicio 1.1 TIPOS DE DATOS Y DOMINIOS
+# Ejercicio 1.1 y 1.2 TIPOS DE DATOS Y DOMINIOS
 
 
 ## Tipos de dato
