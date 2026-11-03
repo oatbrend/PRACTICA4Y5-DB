@@ -3,24 +3,34 @@
 from __future__ import annotations
 
 import csv
-import os
 import time
 from io import StringIO
 from pathlib import Path
 
 import psycopg2
-from dotenv import load_dotenv
 from openpyxl import load_workbook
+from psycopg2.extensions import make_dsn
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVO = ROOT / "practica4" / "datos" / "base_datos_pedidos2.xlsx"
 
+# Credenciales públicas de demostración para la base local de la práctica.
+# Si cambias la contraseña de usuario_app, actualízala también en
+# practica4/permisos.sql.
+DB_NAME = "ventas_industriales"
+DB_USER = "usuario_app"
+DB_PASSWORD = "app_demo_2026"
+DB_HOST = "127.0.0.1"
+DB_PORT = "5434"
+
 def obtener_dsn() -> str:
-    load_dotenv(ROOT / ".env")
-    dsn = os.getenv("DATABASE_URL")
-    if not dsn:
-        raise RuntimeError("Define DATABASE_URL con usuario_app.")
-    return dsn
+    return make_dsn(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+    )
 
 def leer_detalles():
     if not ARCHIVO.is_file():

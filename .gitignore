@@ -1,0 +1,24 @@
+# Archivos temporales de LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+
+# Archivos de SO / Editores
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Datos persistentes de Docker
+postgres_data/
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
