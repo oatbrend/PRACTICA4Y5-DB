@@ -13,9 +13,10 @@ El proyecto representa las ventas y los envíos de tres líneas industriales: OM
 El Excel contiene 80 clientes, 30 transportistas, 40 productos, 100 sucursales, 500 pedidos, 1,500 detalles y 452 envíos (2,702 registros en total). Todos los registros son sintéticos; no son ventas reales ni datos de la empresa privada. La procedencia, correspondencia de campos y calidad se documentan en [fuente.md](./practica4/fuente.md).
 ## 1. Requisitos
 - Docker Desktop instalado y abierto.
-- Python instalado y disponible mediante el comando **py**.
+- Python 3 (en Mac y Linux, el comando python3; en Windows, el comando **py**).
 - Git para descargar o actualizar los repositorios.
 - El archivo Excel revisado **base_datos_pedidos2.xlsx**.
+
 
 No necesitas instalar PostgreSQL directamente en Windows: Docker ejecuta el servidor de base de datos.
 ## 2. Ejecución del proyecto propio
@@ -45,24 +46,42 @@ Comprueba que el archivo exista en esa ubicación antes de continuar. Si no est�
 
 Los registros son sintéticos. El equipo modificó y abstrajo la estructura de referencia de una base privada, explicó el modelo a Claude (Anthropic) y Claude colaboró en la generación aleatoria y controlada de los registros. No se incluyen datos privados de la empresa original. La explicación completa está en [fuente.md](./practica4/fuente.md)
 
-### Paso 3. Credenciales predeterminadas
+### Paso 3. Contraseñas con variables de entorno 
 
-Los usuarios y contraseñas son públicos porque este repositorio está diseñado para una práctica académica local.
+Las contraseñas no se guardan en el repositorio. Se leen desde un archivo .env que cada integrante crea en su computadora y que no se sube (está en el .gitignore).
 
-| Usuario | Contraseña predeterminada | Función |
-|---|---|---|
-| postgres | `postgres_demo_2026` | Administrador inicial de PostgreSQL; ejecuta migraciones y crea los demás usuarios. |
-| usuario_app | `app_demo_2026` | Carga el Excel y puede consultar, insertar, actualizar y borrar registros. |
-| usuario_consulta | `consulta_demo_2026` | Solo puede consultar las tablas. |
-| usuario_admin | `admin_demo_2026` | Administra las tablas y crea objetos en el esquema public, sin ser superusuario. |
+1. Copia la plantilla:
 
-Las credenciales están definidas en estos archivos:
+   ```bash
+   cp .env.example .env
+   ```
 
-- `compose.yaml`: contraseña del usuario `postgres`.
-- `practica4/permisos.sql`: contraseñas de `usuario_app`, `usuario_consulta` y `usuario_admin`.
-- `practica4/poblar/poblar.py` y `practica4/poblar/comparar-copy-insert.py`: datos de conexión del usuario `usuario_app`. Si cambias su contraseña, actualízala en los tres archivos donde aparece.
+2. Abre `.env` y escribe una contraseña para cada variable. Usa valores distintos entre sí:
 
-**Seguridad:** estas son credenciales públicas para una base local desechable. No las reutilices en servidores, proyectos reales ni bases con información privada.
+   | Variable | Para qué se usa |
+   |---|---|
+   | `POSTGRES_PASSWORD` | Administrador inicial de PostgreSQL (`postgres`). Lo lee `compose.yaml`. |
+   | `APP_DB_PASSWORD` | Usuario `usuario_app`: carga el Excel y consulta, inserta, actualiza y borra registros. Lo leen los programas Python. |
+   | `CONSULTA_DB_PASSWORD` | Usuario `usuario_consulta`: solo lectura. |
+   | `ADMIN_DB_PASSWORD` | Usuario `usuario_admin`: administra las tablas, sin ser superusuario. |
+
+3. Carga las variables en la terminal. Hay que repetirlo cada vez que abras una ventana nueva:
+
+   ```bash
+   set -a; source .env; set +a
+   ```
+
+Dónde se usa cada variable:
+
+- `compose.yaml`: lee `POSTGRES_PASSWORD` directamente del `.env`. Como es obligatoria, Docker Compose se detiene con un aviso si falta.
+- `practica4/permisos.sql`: recibe las contraseñas de los tres usuarios como variables de psql (comando del Paso 6).
+- `practica4/poblar/poblar.py` y `practica4/poblar/comparar-copy-insert.py`: leen `APP_DB_PASSWORD`. Si no está definida, se detienen con el mensaje "Falta la variable de entorno APP_DB_PASSWORD".
+
+Variables opcionales de conexión (con su valor por omisión): `DB_NAME` (`ventas_industriales`), `DB_USER` (`usuario_app`), `DB_HOST` (`127.0.0.1`) y `DB_PORT` (`5434`).
+
+**Importante:** `POSTGRES_PASSWORD` solo se aplica cuando Docker crea el volumen por primera vez. Si se cambia después, usar `docker compose down -v` para recrear la base.
+
+
 
 ### Paso 4. Iniciar el servidor de base de datos
 
@@ -121,22 +140,27 @@ Si PostgreSQL muestra un error, detente y revisa el mensaje antes de continuar. 
 
 ### Paso 6. Crear los usuarios y permisos
 
-Los tres usuarios y sus contraseñas ya están definidos en `practica4/permisos.sql`. Ejecuta el script directamente; no tienes que definir variables de entorno ni escribir contraseñas:
+`practica4/permisos.sql` crea tres roles de grupo y un usuario para cada uno. No contiene contraseñas: las recibe del `.env`. Con el `.env` cargado (Paso 3), ejecuta:
 
-~~~powershell
-docker compose cp .\\practica4\\permisos.sql db:/tmp/permisos.sql
-docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_STOP=1 -f /tmp/permisos.sql
-~~~
+```bash
+docker compose cp ./practica4/permisos.sql db:/tmp/permisos.sql
+docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_STOP=1 \
+  -v app_pw="$APP_DB_PASSWORD" \
+  -v ro_pw="$CONSULTA_DB_PASSWORD" \
+  -v adm_pw="$ADMIN_DB_PASSWORD" \
+  -f /tmp/permisos.sql
+```
 
 El script crea o actualiza estos usuarios:
 
-| Usuario | Contraseña | Función |
-|---|---|---|
-| usuario_app | `app_demo_2026` | Leer, insertar, actualizar y borrar registros. Es el usuario que utiliza el cargador. |
-| usuario_consulta | `consulta_demo_2026` | Consultar las tablas, sin modificar información. |
-| usuario_admin | `admin_demo_2026` | Administrar las tablas y crear objetos en el esquema public, sin ser superusuario ni poder crear otros roles. |
+| Usuario | Función |
+|---|---|
+| usuario_app | Leer, insertar, actualizar y borrar registros. Es el usuario que utiliza el cargador. |
+| usuario_consulta | Consultar las tablas, sin modificar información. |
+| usuario_admin | Administrar las tablas y crear objetos en el esquema public, sin ser superusuario ni poder crear otros roles. |
 
-La matriz completa está en `practica4/permisos.md`. Para cambiar las contraseñas, edita los valores indicados en el Paso 3 y vuelve a ejecutar este script para aplicar los cambios a los usuarios existentes.
+La matriz completa está en [permisos.md](./practica4/permisos.md). Para cambiar una contraseña, edita el `.env`, vuelve a cargarlo y ejecuta de nuevo este paso.
+
 
 ### Paso 7. Preparar Python
 
@@ -157,11 +181,13 @@ Si PowerShell impide activar el entorno virtual, puedes instalar las dependencia
 .\.venv\Scripts\python.exe .\practica4\poblar\comparar-copy-insert.py
 ~~~
 
+Cuando el entorno está activo, la línea de comandos empieza con `(.venv)`. Si abres una terminal nueva, vuelve a activarlo con `source .venv/bin/activate`.
+
+`requirements.txt` acepta `psycopg2-binary` en la versión 2.9.10 o posterior. Una versión fija puede no tener paquete precompilado para tu versión de Python, y entonces pip intenta compilarla y falla con `pg_config executable not found'
+
 ### Paso 8. Conexión automática del cargador
 
-El cargador y el benchmark ya utilizan las credenciales predeterminadas de `usuario_app`, la base `ventas_industriales`, el servidor `127.0.0.1` y el puerto `5434`. No necesitas configurar `DATABASE_URL`, `APP_DB_PASSWORD` ni ninguna otra variable de entorno.
-
-Si cambias la contraseña de `usuario_app`, recuerda actualizarla tanto en `practica4/permisos.sql` como en los dos programas Python indicados en el Paso 3. Si cambias el puerto publicado en `compose.yaml`, actualiza también el puerto en esos programas.
+El cargador y el benchmark se conectan como `usuario_app` a la base `ventas_industriales`, en `127.0.0.1:5434`. La contraseña la leen de `APP_DB_PASSWORD`, que se carga con el `.env` (Paso 3). Si la variable no está definida, el programa lo avisa y se detiene sin intentar conectarse.
 
 ### Paso 9. Cargar el Excel
 
@@ -188,7 +214,8 @@ Si una fila incumple una restricción, el programa ejecuta ROLLBACK y no deja un
 py .\practica4\poblar\poblar.py
 ~~~
 
-En esta segunda ejecución, las claves ya existentes deben aparecer como registros existentes y no deben duplicarse.
+En la segunda ejecución, las claves ya existentes deben aparecer como registros existentes (0 insertadas) y no deben duplicarse.
+
 
 ### Paso 10. Comparar INSERT contra COPY
 
@@ -199,6 +226,12 @@ python .\practica4\poblar\comparar-copy-insert.py
 ~~~
 
 El programa mide INSERT individual y COPY usando los mismos 1,500 renglones de la hoja detalle. Guarda los tiempos que muestre tu equipo: dependen del hardware y del entorno, por lo que no se incluyen valores inventados en los documentos.
+Para guardar varias corridas:
+
+```bash
+mkdir -p evidencias
+for i in 1 2 3; do python practica4/poblar/comparar-copy-insert.py; done 2>&1 | tee evidencias/05-copy-vs-insert.txt
+```
 
 ### Paso 11. Ejecutar las pruebas de la Práctica 4
 
