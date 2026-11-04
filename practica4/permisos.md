@@ -8,15 +8,8 @@ Se crean tres roles de grupo sin inicio de sesión y un usuario para cada uno:
 - **rol_consulta / usuario_consulta:** consultas de lectura; no puede insertar, actualizar ni borrar.
 - **rol_administracion / usuario_admin:** administra las tablas del proyecto y puede crear objetos en el esquema public.
 
-Las contraseñas predeterminadas son públicas y están definidas directamente en el proyecto para facilitar la ejecución local de la práctica. 
-| Usuario | Contraseña | Uso |
-|---|---|---|
-| postgres | `postgres_demo_2026` | Administrador inicial de PostgreSQL. |
-| usuario_app | `app_demo_2026` | Carga y modificación de registros. |
-| usuario_consulta | `consulta_demo_2026` | Consultas de solo lectura. |
-| usuario_admin | `admin_demo_2026` | Administración de tablas y objetos en public. |
+Las contraseñas *no* se guardan en el repositorio. Cada integrante las define en su archivo .env (plantilla en .env.example): POSTGRES_PASSWORD para el administrador inicial postgres, APP_DB_PASSWORD para usuario_app, CONSULTA_DB_PASSWORD para usuario_consulta y ADMIN_DB_PASSWORD para usuario_admin. El .env está en el .gitignore. Para cambiar la contraseña de un usuario, edita el .env, cárgalo con set -a; source .env; set +a y vuelve a ejecutar permisos.sql. POSTGRES_PASSWORD solo se aplica al crear la base, así que para cambiarla hay que recrearla con docker compose down -v.
 
-Para cambiar contraseñas, edita `compose.yaml` para el usuario postgres y `practica4/permisos.sql` para los tres usuarios de la práctica. Si cambias la contraseña de `usuario_app`, actualízala también en `practica4/poblar/poblar.py` y `practica4/poblar/comparar-copy-insert.py`. Ejecuta de nuevo `permisos.sql` para aplicar los cambios de los tres usuarios. Estas claves son únicamente para una base local de demostración; no deben reutilizarse en producción.
 
 ## Matriz de permisos
 
@@ -36,14 +29,16 @@ La administración recibe la propiedad de las tablas del proyecto y puede crear 
 
 ## Crear los usuarios
 
-Las contraseñas ya están definidas en [permisos.sql](./practica4/permisos.sql). Ejecuta el script desde la carpeta del repositorio:
+`permisos.sql` no contiene contraseñas: las recibe como variables de psql desde el `.env`. Con el `.env` cargado, ejecuta desde la raíz del repositorio:
 
-```powershell
-docker compose cp .\\practica4\\permisos.sql db:/tmp/permisos.sql
-docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_STOP=1 -f /tmp/permisos.sql
+```bash
+docker compose cp ./practica4/permisos.sql db:/tmp/permisos.sql
+docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_STOP=1 \
+  -v app_pw="$APP_DB_PASSWORD" -v ro_pw="$CONSULTA_DB_PASSWORD" -v adm_pw="$ADMIN_DB_PASSWORD" \
+  -f /tmp/permisos.sql
 ```
 
-El cargador y el benchmark utilizan automáticamente `usuario_app` con la contraseña predeterminada. No es necesario establecer `DATABASE_URL` ni variables de entorno.
+El cargador y el benchmark se conectan como `usuario_app` y leen su contraseña de `APP_DB_PASSWORD`.
 
 ## Pruebas
 
@@ -53,3 +48,5 @@ El archivo pruebas-permisos.sql ejecuta operaciones permitidas y negadas para lo
 docker compose cp .\\practica4\\pruebas-permisos.sql db:/tmp/pruebas-permisos.sql
 docker compose exec -T db psql -U postgres -d ventas_industriales -f /tmp/pruebas-permisos.sql
 ```
+
+
