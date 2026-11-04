@@ -8,7 +8,6 @@ CREATE DOMAIN correo_electronico AS VARCHAR(100)
 CREATE DOMAIN telefono_contacto AS VARCHAR(20)
   CHECK (VALUE ~ '^\+?[0-9][0-9 ()-]{7,18}$');
 
--- Los 80 clientes del Excel tienen correo y teléfono.
 ALTER TABLE cliente ALTER COLUMN correocliente SET NOT NULL;
 ALTER TABLE cliente ALTER COLUMN telefonocliente SET NOT NULL;
 
@@ -49,8 +48,7 @@ ALTER TABLE sucursal
   ADD CONSTRAINT ck_sucursal_cp_formato
   CHECK (cp IS NULL OR cp ~ '^[0-9]{5}$');
 
--- La fuente agrega modeloProducto. HYGOLD se clasifica como OMNIGOLD
--- conforme a la nota de generación del propio Excel.
+
 ALTER TABLE producto
   ADD COLUMN modeloproducto VARCHAR(30) NOT NULL;
 
@@ -82,7 +80,7 @@ ALTER TABLE producto
   ADD CONSTRAINT ck_producto_precio_cubre_costo
   CHECK (preciounitariousd >= costounitariousd);
 
--- La fuente agrega activo y el diccionario admite los cinco estatus.
+
 ALTER TABLE pedido
   ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE;
 
