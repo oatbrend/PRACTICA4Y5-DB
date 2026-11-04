@@ -226,12 +226,7 @@ python .\practica4\poblar\comparar-copy-insert.py
 ~~~
 
 El programa mide INSERT individual y COPY usando los mismos 1,500 renglones de la hoja detalle. Guarda los tiempos que muestre tu equipo: dependen del hardware y del entorno, por lo que no se incluyen valores inventados en los documentos.
-Para guardar varias corridas:
 
-```bash
-mkdir -p evidencias
-for i in 1 2 3; do python practica4/poblar/comparar-copy-insert.py; done 2>&1 | tee evidencias/05-copy-vs-insert.txt
-```
 
 ### Paso 11. Ejecutar las pruebas de la Práctica 4
 
