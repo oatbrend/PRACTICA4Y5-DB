@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import time
 from io import StringIO
 from pathlib import Path
@@ -14,22 +15,16 @@ from psycopg2.extensions import make_dsn
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVO = ROOT / "practica4" / "datos" / "base_datos_pedidos2.xlsx"
 
-# Credenciales públicas de demostración para la base local de la práctica.
-# Si cambias la contraseña de usuario_app, actualízala también en
-# practica4/permisos.sql.
-DB_NAME = "ventas_industriales"
-DB_USER = "usuario_app"
-DB_PASSWORD = "app_demo_2026"
-DB_HOST = "127.0.0.1"
-DB_PORT = "5434"
-
 def obtener_dsn() -> str:
+    password = os.environ.get("APP_DB_PASSWORD")
+    if not password:
+        raise SystemExit("Falta la variable de entorno APP_DB_PASSWORD (ver .env.example).")
     return make_dsn(
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-        port=DB_PORT,
+        dbname=os.environ.get("DB_NAME", "ventas_industriales"),
+        user=os.environ.get("DB_USER", "usuario_app"),
+        password=password,
+        host=os.environ.get("DB_HOST", "127.0.0.1"),
+        port=os.environ.get("DB_PORT", "5434"),
     )
 
 def leer_detalles():
