@@ -1,5 +1,3 @@
--- Credenciales públicas de demostración para el entorno local de la práctica.
--- Si se modifican, actualiza también APP_DB_PASSWORD en los dos scripts Python.
 
 -- Roles de grupo: no pueden iniciar sesión directamente.
 SELECT 'CREATE ROLE rol_aplicacion NOLOGIN'
@@ -10,17 +8,18 @@ SELECT 'CREATE ROLE rol_administracion NOLOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rol_administracion') \gexec
 
 -- Usuarios de conexión con contraseñas predeterminadas.
-SELECT 'CREATE ROLE usuario_app LOGIN PASSWORD ''app_demo_2026'''
+SELECT 'CREATE ROLE usuario_app LOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'usuario_app') \gexec
-ALTER ROLE usuario_app WITH LOGIN PASSWORD 'app_demo_2026';
+ALTER ROLE usuario_app WITH LOGIN PASSWORD :'app_pw';
 
-SELECT 'CREATE ROLE usuario_consulta LOGIN PASSWORD ''consulta_demo_2026'''
+SELECT 'CREATE ROLE usuario_consulta LOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'usuario_consulta') \gexec
-ALTER ROLE usuario_consulta WITH LOGIN PASSWORD 'consulta_demo_2026';
+ALTER ROLE usuario_consulta WITH LOGIN PASSWORD :'ro_pw';
 
-SELECT 'CREATE ROLE usuario_admin LOGIN PASSWORD ''admin_demo_2026'''
+SELECT 'CREATE ROLE usuario_admin LOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'usuario_admin') \gexec
-ALTER ROLE usuario_admin WITH LOGIN PASSWORD 'admin_demo_2026';
+ALTER ROLE usuario_admin WITH LOGIN PASSWORD :'adm_pw';
+
 
 GRANT rol_aplicacion TO usuario_app;
 GRANT rol_consulta TO usuario_consulta;
