@@ -251,7 +251,7 @@ Las pruebas de permisos se ejecutan como postgres porque retiran y restauran tem
 **Integridad referencial:**
 
 ~~~powershell
-docker compose cp .\practica5\pruebas-referenciales.sql db:/tmp/pruebas-referenciales.sql
+docker compose cp .\practica5\sql\pruebas-referenciales.sql db:/tmp/pruebas-referenciales.sql
 docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_STOP=1 -f /tmp/pruebas-referenciales.sql
 ~~~
 
