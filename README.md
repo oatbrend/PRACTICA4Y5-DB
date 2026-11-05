@@ -22,7 +22,7 @@ No necesitas instalar PostgreSQL directamente en Windows: Docker ejecuta el serv
 ## 2. Ejecución del proyecto propio
 
 ### Paso 1. Abrir la carpeta de trabajo
-Abre una terminal en la carpeta del repositorio, **todos los comandos de esta carpeta.**
+Abre una terminal en la carpeta del repositorio, **todos los comandos en esta carpeta.**
 ### Paso 2. Comprobar archivo Excel
 
 Comprueba que el archivo **base_datos_pedidos2.xlsx** se encuentre dentro de esta ruta:
@@ -261,10 +261,6 @@ docker compose exec -T db psql -U postgres -d ventas_industriales -v ON_ERROR_ST
 docker compose cp .\practica5\sql\edicion-de-valores.sql db:/tmp/edicion-de-valores.sql
 docker compose exec -T db psql -U postgres -d ventas_industriales -f /tmp/edicion-de-valores.sql
 ~~~
-
-El archivo DML contiene INSERT, UPDATE, DELETE, borrado lógico, SAVEPOINT, ROLLBACK y una transacción que falla por una clave foránea inexistente. Revisa practica5/edicion-de-valores.md para conocer qué resultado debe observarse.
-
-Las pruebas contienen operaciones temporales y bloques de ROLLBACK para no mezclar los datos de demostración con la población original. Aun así, ejecútalas únicamente sobre la base local dedicada a la práctica.
 
 
 
