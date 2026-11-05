@@ -22,15 +22,16 @@ FROM sucursal WHERE clavesucursal='S-DEM-01';
 
 -- 2. UPDATE basado en producto: toma el precio de catálogo para un detalle.
 
-UPDATE pedido p
-SET estatus=CASE
-    WHEN p.estatus='CANCELADO' THEN 'CANCELADO'
-    WHEN p.estatus='ENTREGADO' THEN 'ENTREGADO'
-    WHEN EXISTS (SELECT 1 FROM envio e WHERE e.folio=p.folio) THEN 'ENVIADO'
-    ELSE 'EN PROCESO'
-END
-WHERE p.folio=(SELECT MIN(folio) FROM pedido)
-RETURNING p.folio,p.estatus;
+UPDATE detalle d
+SET precioaplicado=p.preciounitariousd
+FROM producto p
+WHERE p.claveproducto=d.claveproducto
+  AND (d.folio,d.claveparcial)=(
+      SELECT folio,claveparcial FROM detalle
+      ORDER BY folio,claveparcial LIMIT 1
+  )
+RETURNING d.folio,d.claveparcial,d.precioaplicado;
+
 
 
 -- UPDATE con CASE según exista un envío relacionado.
@@ -40,10 +41,8 @@ RETURNING p.folio,p.estatus;
 UPDATE pedido p
 SET estatus=CASE
     WHEN p.estatus='CANCELADO' THEN 'CANCELADO'
-    WHEN EXISTS (SELECT 1 FROM envio e WHERE e.folio=p.folio)
-         AND p.estatus='ENVIADO' THEN 'ENVIADO'
-    WHEN EXISTS (SELECT 1 FROM envio e WHERE e.folio=p.folio)
-      THEN 'ENTREGADO'
+    WHEN p.estatus='ENTREGADO' THEN 'ENTREGADO'
+    WHEN EXISTS (SELECT 1 FROM envio e WHERE e.folio=p.folio) THEN 'ENVIADO'
     ELSE 'EN PROCESO'
 END
 WHERE p.folio=(SELECT MIN(folio) FROM pedido)
@@ -191,7 +190,7 @@ FROM cliente;
 INSERT INTO detalle
  (folio,claveparcial,claveproducto,costoproduccion,precioaplicado,cantidad)
 VALUES
- (99200012,1,'PRODUCTO-INEXISTENTE',10.00,15.00,1);
+ (99200012,1,'NOEXISTE01',10.00,15.00,1);
 
 ROLLBACK;
 
