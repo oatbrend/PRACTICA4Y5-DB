@@ -267,52 +267,5 @@ El archivo DML contiene INSERT, UPDATE, DELETE, borrado lógico, SAVEPOINT, ROLL
 Las pruebas contienen operaciones temporales y bloques de ROLLBACK para no mezclar los datos de demostración con la población original. Aun así, ejecútalas únicamente sobre la base local dedicada a la práctica.
 
 
-## 3. Evidencias que debes guardar
 
-Guarda capturas auténticas en la carpeta evidencias. Cada captura debe mostrar el comando ejecutado y el resultado. Oculta contraseñas y cualquier dato sensible.
 
-| Evidencia | Qué debe mostrar |
-|---|---|
-| 01 | PostgreSQL del proyecto propio levantado. |
-| 02 | Ejecución correcta de las migraciones 001 y 002. |
-| 03 | Primera carga del Excel y conteos insertados por tabla. |
-| 04 | Segunda carga y registros existentes, sin duplicados. |
-| 05 | Comparación real de INSERT y COPY. |
-| 06 | Pruebas de dominio. |
-| 07 | Pruebas de permisos, operaciones permitidas/negadas y REVOKE. |
-| 08 | Pruebas de integridad referencial y conteos antes/después. |
-| 09 | Operaciones DML y transacciones. |
-| 10 | Verificación de la población del proyecto asignado. |
-| 11 | Carga y conteos del proyecto asignado. |
-| 12 | Comprobaciones de integridad del almacén y pruebas de restricciones en una copia. |
-| 13 | Pull Request revisado y fusionado. |
-
-El archivo evidencias/README.md contiene la lista de capturas sugeridas.
-
-## 4. Orden recomendado de trabajo
-
-1. Coloca el Excel revisado en practica4\datos.
-2. Inicia Docker y crea la base del proyecto propio.
-3. Ejecuta la migración 001 y luego la 002.
-4. Crea los usuarios y permisos.
-5. Instala las dependencias de Python.
-6. Ejecuta la carga del Excel dos veces.
-7. Ejecuta la comparación INSERT/COPY.
-8. Ejecuta las pruebas de dominio, permisos, integridad y DML.
-9. Trabaja en el repositorio separado de Obra Pública Municipal.
-10. Guarda las capturas y solicita revisión del Pull Request.
-
-## 5. Documentación por ejercicio
-
-| Archivo | Contenido |
-|---|---|
-| practica4/dominios.md | Tipos de dato, longitudes, dominios y reglas. |
-| practica4/fuente.md | Fuente, colaboración de Claude, correspondencia y calidad de datos. |
-| practica4/pruebas-dominio.md | Casos de prueba de restricciones. |
-| practica4/permisos.md | Usuarios, roles y matriz de privilegios. |
-| practica4/proyecto-asignado/ | Fuente, conteos y carga de Obra Pública Municipal. |
-| practica5/referencias.md | Claves foráneas y acciones referenciales. |
-| practica5/pruebas-referenciales.md | Pruebas de integridad referencial. |
-| practica5/edicion-de-valores.md | DML y transacciones. |
-| practica5/integridad-almacen.md | Integridad referencial del almacén asignado. |
-| evidencias/README.md | Capturas que se deben obtener. |
