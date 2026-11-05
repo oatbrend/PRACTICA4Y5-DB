@@ -1,65 +1,179 @@
 # Ejercicio 2.5. Integridad referencial en el almacén asignado
 
-## Tablas de hechos, dimensiones y granularidad
+## Propósito
 
+El ejercicio solicita identificar las tablas de hechos y sus dimensiones, explicar la granularidad de cada hecho, revisar las claves foráneas entre hechos y dimensiones y buscar registros que apunten a dimensiones inexistentes. Si faltan claves foráneas, se deben probar en una copia para comprobar si los datos las cumplen.
 
-| Tabla de hechos | ¿Qué representa una fila? | Clave primaria |
+El análisis utiliza el esquema del almacén definido en [db/arquitectura/ESQUEMA DEL DATA WAREHOUSE.sql](../db/arquitectura/ESQUEMA%20DEL%20DATA%20WAREHOUSE.sql) de la rama `TestDefinitivo`.
+
+> **Alcance de los datos:** el repositorio genera una población sintética para reproducir el escenario del proyecto. Las consultas de este ejercicio comprueban la integridad de esa población cargada; no certifican información real de operación municipal.
+
+---
+
+## 1. Tablas de hechos, dimensiones y granularidad
+
+El almacén contiene diez dimensiones y dos tablas de hechos.
+
+### 1.1. Dimensiones
+
+| Dimensión | Tipo SCD | Qué describe |
 |---|---|---|
-| warehouse.fact_eventos_auditoria | Un evento de auditoría ocurrido en una fecha, con un tipo de evento y referencias opcionales a obra, región, personal, constructora, fuente, presupuesto, poblador o propuesta. | (tiempo_key, evento_key) |
-| warehouse.fact_obra_mensual | El resumen de una obra para un mes específico: presupuesto, costo acumulado, saldo, avance, retraso y conteos de informes, evidencias y permisos. | (tiempo_key, obra_key) |
+| `dim_tiempo` | Tipo 0 | Calendario: fecha, año, trimestre, mes, día y periodos. |
+| `dim_tipo_evento` | Tipo 0 | Catálogo de eventos que puede registrar el sistema. |
+| `dim_obra` | Tipo 2 | Datos de las obras y sus versiones históricas. |
+| `dim_region` | Tipo 2 | Comunidad, barrio y colonia con historial de cambios. |
+| `dim_constructora` | Tipo 2 | Datos de las constructoras con historial. |
+| `dim_personal` | Tipo 2 | Personal, rol y asignaciones con historial. |
+| `dim_fuente` | Tipo 1 | Fuente de financiamiento con sus valores actuales. |
+| `dim_presupuesto` | Tipo 2 | Presupuesto y proyectista asociado, conservando versiones. |
+| `dim_poblador` | Tipo 1 | Datos actuales del poblador. |
+| `dim_propuesta` | Tipo 1 | Datos actuales de la propuesta ciudadana. |
 
-La granularidad de `fact_eventos_auditoria` es un evento individual. La granularidad de `fact_obra_mensual` es una combinación obra-mes: una obra puede tener una fila por cada mes de seguimiento, pero no dos filas para la misma obra y fecha.
+Las dimensiones Tipo 0 son catálogos que se mantienen sin cambios; las Tipo 1 sustituyen el valor anterior por el actual; y las Tipo 2 conservan versiones para representar cambios históricos.
 
-Las diez dimensiones declaradas en el esquema son:
+### 1.2. Tabla de hechos: `warehouse.fact_eventos_auditoria`
 
-- `dim_tiempo`
-- `dim_tipo_evento`
-- `dim_obra`
-- `dim_region`
-- `dim_constructora`
-- `dim_personal`
-- `dim_fuente`
-- `dim_presupuesto`
-- `dim_poblador`
-- `dim_propuesta`
+**Granularidad:** un renglón representa un evento individual de auditoría registrado en una fecha y clasificado mediante un tipo de evento.
 
-## Claves foráneas declaradas
+Su clave primaria está formada por `(tiempo_key, evento_key)`. La tabla está particionada por rango de `tiempo_key`.
 
-El archivo `db/arquitectura/ESQUEMA DEL DATA WAREHOUSE.sql` declara las claves foráneas de ambas tablas de hechos.
+Sus dimensiones relacionadas son:
 
-- `fact_eventos_auditoria.tiempo_key` y `tipo_evento_key` son NOT NULL y apuntan a `dim_tiempo` y `dim_tipo_evento\).
-- Sus referencias a obra, región, personal, constructora, fuente, presupuesto, poblador y propuesta son opcionales; por eso admiten NULL.
-- `fact_obra_mensual.tiempo_key` y `obra_key` son NOT NULL y apuntan a `dim_tiempo` y `dim_obra`.
+- `dim_tiempo`: fecha en la que ocurrió el evento.
+- `dim_tipo_evento`: clase de evento registrado.
+- `dim_obra`: obra relacionada, cuando aplica.
+- `dim_region`: región relacionada, cuando aplica.
+- `dim_personal`: persona que ejecutó la acción, cuando aplica.
+- `dim_constructora`: constructora relacionada, cuando aplica.
+- `dim_fuente`: fuente presupuestaria relacionada, cuando aplica.
+- `dim_presupuesto`: presupuesto relacionado, cuando aplica.
+- `dim_poblador`: poblador relacionado, cuando aplica.
+- `dim_propuesta`: propuesta relacionada, cuando aplica.
 
-No se encontró una FK faltante entre las tablas de hechos y las dimensiones enumeradas. El SQL de comprobación revisa de todos modos las referencias huérfanas con LEFT JOIN; cada conteo debe ser cero.
+Las columnas de fecha y tipo de evento son obligatorias. Las demás referencias pueden ser `NULL`, porque no todos los tipos de evento se relacionan con todas las dimensiones.
 
-## ¿Por qué algunos almacenes no declaran todas las FK?
+Entre sus medidas y datos descriptivos se encuentran montos de presupuesto, costo y ejercicio, porcentajes de avance, días transcurridos, votos, indicadores del evento, descripción, documento y evidencia.
 
-En almacenes con cargas muy grandes, a veces se omiten temporalmente algunas claves foráneas para que la carga masiva tarde menos o para aceptar primero los registros y validarlos después. El riesgo es que entren claves que no existen en las dimensiones. Entonces aparecen hechos huérfanos: al unirlos con la dimensión faltante, esos registros no se muestran y los conteos pueden ser incorrectos. En este proyecto las FK sí están declaradas, por lo que se conservan y se comprueban con las consultas anteriores.
+### 1.3. Tabla de hechos: `warehouse.fact_obra_mensual`
 
-## Consultas de comprobación
+**Granularidad:** un renglón representa el estado acumulado de una obra para un mes determinado. Es un *snapshot periódico* por obra y mes.
 
-El archivo `sql/comprobar-integridad-almacen.sql` incluye:
+Su clave primaria está formada por `(tiempo_key, obra_key)`. Cada combinación de obra y fecha de corte mensual puede aparecer una sola vez.
 
-1. Conteo de hechos sin dimensión de tiempo o tipo de evento.
-2. Conteo de referencias no nulas a dimensiones inexistentes.
-3. Conteo de hechos mensuales sin dimensión de obra.
-4. Conteo de claves duplicadas y nulos en las referencias obligatorias.
+Sus dimensiones relacionadas son:
 
-## Tres restricciones de dominio que conviene agregar
+- `dim_tiempo`: mes de corte del resumen.
+- `dim_obra`: obra a la que corresponde el resumen.
 
-Se proponen restricciones sencillas que protegen los valores almacenados, sin cambiar el modelo:
+Entre sus medidas se encuentran presupuesto total, costo acumulado, saldo presupuestario, porcentaje ejercido, avance físico y presupuestario acumulado, días de retraso y cantidades de informes, evidencias y permisos.
 
-| Restricción | Regla | ¿Qué comprueba? |
+El generador construye los snapshots para 24 meses, de enero de 2024 a diciembre de 2025. Esto representa hasta 24 renglones mensuales por cada obra.
+
+---
+
+## 2. Revisión de las claves foráneas entre hechos y dimensiones
+
+La revisión de `db/arquitectura/ESQUEMA DEL DATA WAREHOUSE.sql` muestra que **las claves foráneas ya están declaradas en las dos tablas de hechos**.
+
+| Tabla de hechos | Columna | Dimensión referenciada |
 |---|---|---|
-| Montos no negativos en fact_obra_mensual | Presupuesto, costo acumulado y saldo no pueden ser negativos. | Busca registros con montos menores que cero. |
-| Porcentajes de avance entre 0 y 100 en fact_obra_mensual | Un porcentaje no puede ser menor que cero ni mayor que cien. | Busca avances fuera del intervalo. |
-| Porcentajes de avance entre 0 y 100 en fact_eventos_auditoria | Cuando se captura un porcentaje de avance, debe estar entre cero y cien. | Busca eventos con porcentaje fuera del intervalo. |
+| `fact_eventos_auditoria` | `tiempo_key` | `dim_tiempo(tiempo_key)` |
+| `fact_eventos_auditoria` | `tipo_evento_key` | `dim_tipo_evento(tipo_evento_key)` |
+| `fact_eventos_auditoria` | `obra_key` | `dim_obra(obra_key)` |
+| `fact_eventos_auditoria` | `region_key` | `dim_region(region_key)` |
+| `fact_eventos_auditoria` | `personal_key` | `dim_personal(personal_key)` |
+| `fact_eventos_auditoria` | `constructora_key` | `dim_constructora(constructora_key)` |
+| `fact_eventos_auditoria` | `fuente_key` | `dim_fuente(fuente_key)` |
+| `fact_eventos_auditoria` | `presupuesto_key` | `dim_presupuesto(presupuesto_key)` |
+| `fact_eventos_auditoria` | `poblador_key` | `dim_poblador(poblador_key)` |
+| `fact_eventos_auditoria` | `propuesta_key` | `dim_propuesta(propuesta_key)` |
+| `fact_obra_mensual` | `tiempo_key` | `dim_tiempo(tiempo_key)` |
+| `fact_obra_mensual` | `obra_key` | `dim_obra(obra_key)` |
 
-Las consultas previas a la migración permiten revisar si los datos actuales cumplen las reglas. La migración se debe aplicar en una copia de la base, tal como pide la práctica. El script de prueba intenta introducir un porcentaje de 101 y espera que PostgreSQL lo rechace.
+En total se identifican doce relaciones de integridad referencial: diez en la tabla de eventos de auditoría y dos en la tabla de snapshots mensuales.
 
-## Datos y comparación con el artículo
+Por lo tanto, no se necesita agregar claves foráneas al esquema original. Hacerlo duplicaría restricciones que ya existen.
 
-El artículo reporta un escenario de datos sintéticos: 1,247 obras, 55 comunidades, presupuesto acumulado de $127.4 millones MXN, 8,934 eventos de auditoría, 3,421 evidencias, 2,341 pobladores, 2,156 propuestas y 8,723 votos. El generador del repositorio declara esos mismos valores y contiene una opción `--verificar` que comprueba la población prevista sin conectarse a PostgreSQL.
+---
 
-Los conteos reales de las tablas deben obtenerse después de ejecutar el generador. No se presentan como ejecutados en este documento porque requieren levantar el contenedor local.
+## 3. Búsqueda de hechos huérfanos y comprobación en una copia
+
+Aunque el esquema ya declara las claves foráneas, se necesita comprobar que la población cargada mantiene la integridad referencial. Para ello se utiliza el archivo:
+
+`practica5/sql/comprobar-integridad-almacen-ejercicio-2.5.sql`
+
+El script realiza este procedimiento:
+
+1. Consulta el catálogo de PostgreSQL para mostrar las claves foráneas declaradas en las tablas originales de hechos y si están validadas.
+2. Muestra cuántos registros hay en cada tabla de hechos.
+3. Crea copias de `fact_eventos_auditoria` y `fact_obra_mensual` dentro de un esquema separado llamado `ejercicio_2_5_copia`, con sus datos, pero sin copiar sus claves foráneas.
+4. Busca referencias a dimensiones inexistentes mediante `LEFT JOIN` y `NOT EXISTS`. Las referencias opcionales con valor `NULL` no se cuentan como huérfanas.
+5. Intenta agregar a las copias las mismas doce claves foráneas del esquema original.
+6. Muestra las claves creadas en las copias.
+
+### 3.1. ¿Por qué se prueban las relaciones en copias?
+
+Como las doce claves ya aparecen en el esquema original, el punto que pide agregarlas solo sería necesario si faltaran. En este caso se vuelven a crear en las copias para comprobar directamente que todos los registros actuales pueden quedar protegidos por esas relaciones, sin alterar la base original. Las copias son tablas normales dentro del esquema de prueba, porque PostgreSQL no permite definir claves foráneas desde una tabla temporal hacia una tabla permanente. El script elimina el esquema `ejercicio_2_5_copia` al finalizar.
+
+Si existe una referencia a una dimensión que no está presente, la consulta de huérfanos mostrará el registro y la incorporación de la clave foránea correspondiente fallará. Si el script llega al mensaje final, las doce relaciones pudieron agregarse a las copias. El esquema de prueba se elimina al terminar, incluso si la transacción se revierte por un error.
+
+### 3.2. Ejecutar las consultas y pruebas
+
+```bash
+MSYS_NO_PATHCONV=1 docker compose -f ./docker/compose.yml exec -T db psql -U obras -d obras_publicas -v ON_ERROR_STOP=1 -f /tmp/comprobar-integridad-almacen-ejercicio-2.5.sql
+```
+
+El comando utiliza el usuario `obras` y la base `obras_publicas`, definidos en `docker/compose.yml` de la rama `TestDefinitivo`.
+
+### 3.3. Interpretación de resultados
+
+Se deben revisar tres partes de la salida:
+
+- **Claves declaradas:** deben aparecer diez referencias para `fact_eventos_auditoria` y dos para `fact_obra_mensual`. La columna `validada` permite revisar si PostgreSQL considera validada cada restricción.
+- **Búsqueda de huérfanos:** la columna `huerfanos` debe indicar cero para cada relación. La consulta de detalle debe devolver cero filas si no existen referencias rotas.
+- **Prueba en copias:** si las doce claves foráneas se agregan correctamente y aparece el mensaje final, los registros copiados cumplen las relaciones. Las tablas originales no se modifican.
+
+No se deben escribir cantidades de registros ni resultados definitivos antes de ejecutar el archivo en la instancia local; los conteos se obtienen de la salida real de PostgreSQL.
+
+---
+
+## 4. ¿Por qué un almacén de datos a veces omite claves foráneas?
+
+En algunos almacenes de datos se decide no declarar físicamente todas las claves foráneas por razones de operación:
+
+1. **Velocidad de carga:** al insertar millones de hechos, comprobar cada referencia puede aumentar el costo de las cargas masivas.
+2. **Proceso ETL/ELT:** la integridad puede revisarse antes o durante la transformación, mediante consultas de calidad de datos, en lugar de delegarla por completo al motor.
+3. **Dimensiones que llegan tarde:** un hecho puede recibirse antes de que exista o se haya resuelto su registro dimensional. Algunos procesos utilizan una fila temporal o un miembro desconocido hasta completar la dimensión.
+4. **Plataformas analíticas:** ciertos motores o arquitecturas priorizan la lectura y la carga masiva, y dejan la validación referencial en los procesos de integración.
+
+Omitir una clave foránea no significa que la relación deje de ser necesaria; significa que el proceso de carga debe hacerse responsable de verificarla.
+
+### Riesgos de omitirlas
+
+- Se pueden almacenar hechos que apunten a claves dimensionales inexistentes.
+- Una consulta con `INNER JOIN` puede excluir esos hechos y producir totales incompletos.
+- Los indicadores y reportes pueden quedar incorrectos sin que la carga necesariamente se detenga.
+- Se dificulta rastrear el origen del error y mantener la consistencia de los análisis.
+
+En el esquema revisado, las doce claves foráneas están declaradas. Por ello, el diseño utiliza la validación del propio PostgreSQL para proteger esas referencias.
+
+---
+
+## 5. Conclusión
+
+Después de ejecutar las consultas de comprobación sobre el almacén de datos, se verificó que las tablas de hechos contienen 55,740 registros en `fact_eventos_auditoria` y 29,928 registros en `fact_obra_mensual`. Al revisar sus referencias hacia las dimensiones correspondientes, no se encontraron registros huérfanos: las doce relaciones evaluadas devolvieron cero inconsistencias.
+
+También se comprobó que las doce claves foráneas ya estaban declaradas y validadas en el esquema original. Para verificar la integridad de los datos sin modificar el almacén, se crearon copias de ambas tablas y se agregaron las doce restricciones mediante instrucciones `ALTER TABLE`. Todas se crearon correctamente, lo que confirma que los registros existentes cumplen con las relaciones referenciales establecidas.
+
+Por lo tanto, en el estado actual de la base de datos, no se detectaron problemas de integridad referencial entre las tablas de hechos y las dimensiones. Sin embargo, mantener estas restricciones resulta importante para evitar que futuras cargas incorporen referencias inexistentes. La prueba se realizó sobre copias, por lo que las tablas originales permanecieron intactas.
+
+![Evidencia 1](../evidencias/01-pruebas-ejercicio2.5.png)
+![Evidencia 2](../evidencias/02-pruebas-ejercicio2.5.png)
+![Evidencia 3](../evidencias/03-pruebas-ejercicio2.5.png)
+![Evidencia 4](../evidencias/04-pruebas-ejercicio2.5.png)
+
+## Fuentes
+
+- [Esquema del Data Warehouse — rama TestDefinitivo](https://github.com/OmarFloresIIA/PublicMunicipalWorks_DWH/blob/TestDefinitivo/db/arquitectura/ESQUEMA%20DEL%20DATA%20WAREHOUSE.sql).
+- [Funciones y triggers — rama TestDefinitivo](https://github.com/OmarFloresIIA/PublicMunicipalWorks_DWH/blob/TestDefinitivo/db/arquitectura/FUNCIONES%20Y%20TRIGGERS.sql).
+- [README — rama TestDefinitivo](https://github.com/OmarFloresIIA/PublicMunicipalWorks_DWH/blob/TestDefinitivo/README.md), sección **Running the reference API**.
